@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>酒店客补预算指挥中心</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #06b6d4, #8b5cf6, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .subtitle { color: #94a3b8; font-size: 0.95rem; }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .kpi-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-color);
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .kpi-card.cyan { --accent-color: #06b6d4; }
+        .kpi-card.yellow { --accent-color: #f59e0b; }
+        .kpi-card.purple { --accent-color: #8b5cf6; }
+        .kpi-card.green { --accent-color: #10b981; }
+        .kpi-card.blue { --accent-color: #3b82f6; }
+        .kpi-card.red { --accent-color: #ef4444; }
+        .kpi-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin: 10px 0;
+            text-shadow: 0 0 30px var(--accent-color);
+        }
+        .kpi-label { font-size: 0.9rem; color: #94a3b8; margin-bottom: 5px; }
+        .kpi-sub { font-size: 0.85rem; color: #64748b; }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #f8fafc;
+        }
+        .chart-container { position: relative; height: 300px; }
+        .table-card {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 14px 12px;
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .data-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+        .data-table tr:hover { background: rgba(255, 255, 255, 0.03); }
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .badge-green { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .badge-yellow { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .badge-blue { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease;
+        }
+        .progress-fill.red { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .progress-fill.green { background: linear-gradient(90deg, #10b981, #34d399); }
+        .progress-fill.blue { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        .loading {
+            text-align: center;
+            padding: 100px;
+            color: #94a3b8;
+        }
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #ef4444;
+        }
+        .refresh-btn {
+            background: linear-gradient(90deg, #06b6d4, #3b82f6);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        .refresh-btn:hover { opacity: 0.9; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #10b981;
+            font-size: 0.8rem;
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏨 酒店客补预算指挥中心</h1>
+            <div class="subtitle">
+                <span class="live-indicator"><span class="live-dot"></span>实时数据监控</span>
+                &nbsp;&nbsp;•&nbsp;&nbsp; 2025年4月 &nbsp;&nbsp;•&nbsp;&nbsp; 
+                最后更新: <span id="update-time">加载中...</span>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <p>📊 正在加载数据...</p>
+            <p style="font-size: 0.85rem; margin-top: 10px;">如果长时间未加载，请检查 data.json 文件是否存在</p>
+        </div>
+        
+        <div id="error" class="error" style="display: none;">
+            <p>❌ 数据加载失败</p>
+            <p style="font-size: 0.85rem; margin: 10px 0;">请确保 data.json 文件与HTML文件在同一目录</p>
+            <button class="refresh-btn" onclick="loadData()">🔄 重新加载</button>
+        </div>
+        
+        <div id="dashboard" style="display: none;">
+            <!-- KPI卡片 -->
+            <div class="kpi-grid" id="kpi-grid">
+                <!-- 动态生成 -->
+            </div>
+            
+            <!-- 图表区域 -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-title">📈 补贴率趋势监控</div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <div class="chart-title">🚀 项目执行率对比</div>
+                    <div class="chart-container">
+                        <canvas id="projectChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 项目明细 -->
+            <div class="table-card">
+                <div class="chart-title">📋 项目集预算执行情况</div>
+                <table class="data-table" id="projects-table">
+                    <thead>
+                        <tr>
+                            <th>项目名称</th>
+                            <th>业务类型</th>
+                            <th>申请预算</th>
+                            <th style="width: 150px;">MTD执行率</th>
+                            <th>执行率-时间Gap</th>
+                            <th>ROI</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projects-tbody">
+                        <!-- 动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p id="footer-tip">💡 数据加载中...</p>
+            <p style="margin-top: 10px; opacity: 0.7;">系统版本：v2.1.0 | 数据来源：Excel/学城/SQL</p>
+        </div>
+    </div>
+    
+    <script>
+        // 全局数据
+        let dashboardData = null;
+        let trendChartInstance = null;
+        let projectChartInstance = null;
+        
+        // 格式化金额
+        function formatMoney(num) {
+            if (num >= 100000000) return (num / 100000000).toFixed(1) + '亿';
+            if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+            return num.toLocaleString();
+        }
+        
+        // 加载数据
+        async function loadData() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'none';
+            
+            try {
+                const response = await fetch('data.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Network error');
+                
+                dashboardData = await response.json();
+                renderDashboard(dashboardData);
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                document.getElementById('update-time').textContent = 
+                    dashboardData.update_time || new Date().toLocaleString('zh-CN');
+            } catch (err) {
+                console.error('加载失败:', err);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+        
+        // 渲染Dashboard
+        function renderDashboard(data) {
+            const kpi = data.kpi;
+            
+            // 生成KPI卡片
+            const kpiGrid = document.getElementById('kpi-grid');
+            kpiGrid.innerHTML = `
+                <div class="kpi-card cyan">
+                    <div class="kpi-label">MTD总预算执行率</div>
+                    <div class="kpi-value">${kpi.executed_rate}%</div>
+                    <div class="kpi-sub">预算 ${formatMoney(kpi.total_budget)} | 已执行 ${formatMoney(kpi.executed_amount)}</div>
+                </div>
+                <div class="kpi-card yellow">
+                    <div class="kpi-label">执行率 vs 时间进度 Gap</div>
+                    <div class="kpi-value">${kpi.gap > 0 ? '+' : ''}${kpi.gap}%</div>
+                    <div class="kpi-sub">执行率 ${kpi.executed_rate}% | 时间进度 ${kpi.time_progress}% (${kpi.passed_days}/${kpi.total_days}天)</div>
+                </div>
+                <div class="kpi-card purple">
+                    <div class="kpi-label">当前拉流量:促转化配比</div>
+                    <div class="kpi-value">${kpi.traffic_ratio}:${kpi.conversion_ratio}</div>
+                    <div class="kpi-sub">目标配比 60:40 | 促转化占比${kpi.conversion_ratio < 40 ? '偏低' : '正常'}</div>
+                </div>
+                <div class="kpi-card green">
+                    <div class="kpi-label">当前补贴率</div>
+                    <div class="kpi-value">${kpi.subsidy_rate}%</div>
+                    <div class="kpi-sub">目标区间 6%-10% | 状态: ${kpi.subsidy_rate >= 6 && kpi.subsidy_rate <= 10 ? '正常' : '异常'}</div>
+                </div>
+                <div class="kpi-card blue">
+                    <div class="kpi-label">剩余天数</div>
+                    <div class="kpi-value">${kpi.remaining_days}天</div>
+                    <div class="kpi-sub">本月共${kpi.total_days}天 | 已过 ${kpi.passed_days} 天</div>
+                </div>
+                <div class="kpi-card red">
+                    <div class="kpi-label">在跑项目数</div>
+                    <div class="kpi-value">${data.projects.length}个</div>
+                    <div class="kpi-sub">查看下方项目明细表了解详情</div>
+                </div>
+            `;
+            
+            // 渲染项目表格
+            const tbody = document.getElementById('projects-tbody');
+            tbody.innerHTML = data.projects.map(p => `
+                <tr>
+                    <td><strong>${p.name}</strong></td>
+                    <td>${p.type}</td>
+                    <td>¥${formatMoney(p.budget)}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span>${p.exec_rate}%</span>
+                            <div class="progress-bar" style="flex: 1;">
+                                <div class="progress-fill ${p.status_class}" style="width: ${Math.min(p.exec_rate, 100)}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span style="color: ${p.gap > 0 ? '#ef4444' : p.gap < -5 ? '#3b82f6' : '#64748b'}; font-weight: 600;">${p.gap > 0 ? '+' : ''}${p.gap}%</span></td>
+                    <td><strong style="color: ${p.roi >= 15 ? '#10b981' : p.roi >= 10 ? '#f59e0b' : '#64748b'}">${p.roi}</strong></td>
+                    <td><span class="badge badge-${p.status_class}">${p.status}</span></td>
+                </tr>
+            `).join('');
+            
+            // 渲染图表
+            renderCharts(data);
+            
+            // 更新footer提示
+            const tips = [];
+            const fastProjects = data.projects.filter(p => p.exec_rate > 80);
+            const slowProjects = data.projects.filter(p => p.exec_rate < 50);
+            if (fastProjects.length > 0) {
+                tips.push(`关注超支风险：${fastProjects.map(p => p.name).join('、')}`);
+            }
+            if (slowProjects.length > 0) {
+                tips.push(`关注进度滞后：${slowProjects.map(p => p.name).join('、')}`);
+            }
+            document.getElementById('footer-tip').textContent = tips.length > 0 ? '💡 ' + tips.join(' | ') : '✅ 所有项目运行正常';
+        }
+        
+        // 渲染图表
+        function renderCharts(data) {
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+            
+            // 趋势图
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            if (trendChartInstance) trendChartInstance.destroy();
+            
+            const gradient = trendCtx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(6, 182, 212, 0.3)');
+            gradient.addColorStop(1, 'rgba(6, 182, 212, 0.01)');
+            
+            trendChartInstance = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: data.subsidy_trend.map(d => d.date),
+                    datasets: [{
+                        label: '补贴率',
+                        data: data.subsidy_trend.map(d => d.rate),
+                        borderColor: '#06b6d4',
+                        backgroundColor: gradient,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#06b6d4',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: '上限 10%',
+                        data: data.subsidy_trend.map(() => 10),
+                        borderColor: '#ef4444',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }, {
+                        label: '下限 6%',
+                        data: data.subsidy_trend.map(() => 6),
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'top', align: 'end' }
+                    },
+                    scales: {
+                        y: { min: 5, max: 11, ticks: { callback: v => v + '%' } }
+                    }
+                }
+            });
+            
+            // 项目对比图
+            const projectCtx = document.getElementById('projectChart').getContext('2d');
+            if (projectChartInstance) projectChartInstance.destroy();
+            
+            projectChartInstance = new Chart(projectCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.projects.map(p => p.name.replace(/-.+$/, '')),
+                    datasets: [{
+                        label: 'MTD执行率',
+                        data: data.projects.map(p => p.exec_rate),
+                        backgroundColor: data.projects.map(p => 
+                            p.exec_rate > 80 ? '#ef4444' : 
+                            p.exec_rate > 60 ? '#10b981' : '#3b82f6'
+                        ),
+                        borderRadius: 6,
+                        barThickness: 25
+                    }, {
+                        label: '时间进度 (' + data.kpi.time_progress + '%)',
+                        data: data.projects.map(() => data.kpi.time_progress),
+                        type: 'line',
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { min: 0, max: 100, ticks: { callback: v => v + '%' } }
+                    }
+                }
+            });
+        }
+        
+        // 初始化
+        loadData();
+        
+        // 每分钟更新时间
+        setInterval(() => {
+            if (dashboardData) {
+                document.getElementById('update-time').textContent = new Date().toLocaleString('zh-CN');
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
